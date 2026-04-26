@@ -46,10 +46,26 @@ def alpha_col(color: tuple, alpha: float, bg: tuple) -> tuple:
 # ── font loading ───────────────────────────────────────────────────────────────
 def _load_font(bold: bool, size: int) -> ImageFont.FreeTypeFont:
     paths_bold = [
+        # Windows
+        r"C:\Windows\Fonts\arialbd.ttf",
+        r"C:\Windows\Fonts\calibrib.ttf",
+        r"C:\Windows\Fonts\verdanab.ttf",
+        # macOS
+        "/Library/Fonts/Arial Bold.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        # Linux
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     ]
     paths_regular = [
+        # Windows
+        r"C:\Windows\Fonts\arial.ttf",
+        r"C:\Windows\Fonts\calibri.ttf",
+        r"C:\Windows\Fonts\verdana.ttf",
+        # macOS
+        "/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        # Linux
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
     ]

@@ -4,8 +4,11 @@ set -e
 echo "Installing dependencies..."
 pip install -r requirements.txt
 
-echo "Installing espeak for voice narration..."
-sudo apt-get install espeak -y 2>/dev/null || true
+# espeak is only needed on Linux for pyttsx3; Windows uses SAPI5 built-in
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  echo "Installing espeak for Linux TTS..."
+  sudo apt-get install espeak -y 2>/dev/null || true
+fi
 
 if [ -z "$ANTHROPIC_API_KEY" ]; then
   echo "Enter your Anthropic API key:"
