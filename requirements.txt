@@ -3,7 +3,7 @@ anthropic
 pdfplumber
 python-docx
 python-pptx
-pyttsx3
+requests
 moviepy
 Pillow
 numpy

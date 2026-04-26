@@ -9,16 +9,34 @@ Convert any document into a short animated educational video — right in your b
 ### Windows
 ```bat
 set ANTHROPIC_API_KEY=sk-ant-...
+set GOOGLE_TTS_KEY=AIza...
 run.bat
 ```
 
 ### Mac / Linux
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
+export GOOGLE_TTS_KEY="AIza..."
 bash run.sh
 ```
 
 Then open **http://localhost:5000**
+
+---
+
+## Environment variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | Yes | Claude API key — generates the video script |
+| `GOOGLE_TTS_KEY` | Yes | Google Cloud TTS API key — generates voiceover audio |
+
+If `GOOGLE_TTS_KEY` is missing the video will still render, just without audio.
+
+**Getting a Google TTS API key:**
+1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. Enable the **Cloud Text-to-Speech API**
+3. Create an API key under **APIs & Services → Credentials**
 
 ---
 
@@ -29,31 +47,22 @@ Then open **http://localhost:5000**
 pip install -r requirements.txt
 ```
 
-**Windows** — TTS works out of the box via SAPI5 (built-in). No extra install needed.
-
-**Mac** — pyttsx3 needs pyobjc:
-```bash
-pip install pyobjc
-```
-
-**Linux** — pyttsx3 needs espeak:
-```bash
-sudo apt-get install espeak
-```
-
-### 2 — Set your Anthropic API key
+### 2 — Set environment variables
 
 **Windows (cmd)**
 ```
 set ANTHROPIC_API_KEY=sk-ant-...
+set GOOGLE_TTS_KEY=AIza...
 ```
 **Windows (PowerShell)**
 ```powershell
 $env:ANTHROPIC_API_KEY="sk-ant-..."
+$env:GOOGLE_TTS_KEY="AIza..."
 ```
 **Mac / Linux**
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
+export GOOGLE_TTS_KEY="AIza..."
 ```
 
 ### 3 — Run
@@ -77,7 +86,7 @@ python app.py
 
 - **Two video styles:** Whiteboard (animated chalk writing) and Slides (modern presentation)
 - **Three themes:** Clean, Colorful, Dark
-- **TTS narration** via pyttsx3 — offline, no extra API (SAPI5 on Windows, espeak on Linux, AVFoundation on Mac)
+- **TTS narration** via Google Cloud Text-to-Speech Neural2 voice (en-US-Neural2-D)
 - **Supported input:** PDF, DOCX, PPTX, TXT, or pasted text
 - **In-browser playback** with card-by-card navigation chips
 - **MP4 download**
@@ -87,12 +96,11 @@ python app.py
 ## File structure
 
 ```
-chalkboard_ai/
 ├── app.py            Flask backend (4 routes)
 ├── extractor.py      PDF / DOCX / PPTX / TXT extraction
 ├── generator.py      Claude API → JSON cards
 ├── renderer.py       Pillow frame rendering (1280×720 @ 24fps)
-├── narrator.py       pyttsx3 TTS → WAV files
+├── narrator.py       Google TTS REST API → MP3 files
 ├── composer.py       moviepy → MP4 (v1 + v2 compatible)
 ├── run.sh            Linux/Mac startup script
 ├── run.bat           Windows startup script

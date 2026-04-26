@@ -6,6 +6,7 @@ FPS = 24
 
 
 def compose_video(frames: list, cards: list, wav_paths, output_path: str) -> str:
+    # wav_paths may actually be mp3 paths — AudioFileClip handles both
     # moviepy v2 removed moviepy.editor; fall back gracefully
     try:
         import moviepy.editor as mpy
@@ -18,7 +19,7 @@ def compose_video(frames: list, cards: list, wav_paths, output_path: str) -> str
     video_clip = mpy.ImageSequenceClip(np_frames, fps=FPS)
 
     audio_clip = None
-    if wav_paths and any(p is not None for p in wav_paths):
+    if wav_paths and any(p is not None for p in wav_paths):  # accepts .wav or .mp3
         audio_segments = []
         for i, (card, wav_path) in enumerate(zip(cards, wav_paths)):
             if wav_path and os.path.exists(wav_path) and os.path.getsize(wav_path) > 0:
