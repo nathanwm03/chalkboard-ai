@@ -11,6 +11,8 @@ _state = {"video_path": None, "cards": []}
 
 TEMP_DIR = os.path.join(tempfile.gettempdir(), "chalkboard_ai")
 
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".txt", ".jpg", ".jpeg", ".png"}
+
 
 def _ensure_tmp():
     os.makedirs(TEMP_DIR, exist_ok=True)
@@ -55,6 +57,9 @@ def generate():
         content = ""
         uploaded_file = request.files.get("file")
         if uploaded_file and uploaded_file.filename:
+            ext = os.path.splitext(uploaded_file.filename)[1].lower()
+            if ext not in ALLOWED_EXTENSIONS:
+                return jsonify({"error": f"Unsupported file type: {ext}"}), 400
             tmp_upload = os.path.join(TEMP_DIR, "upload_" + uploaded_file.filename)
             uploaded_file.save(tmp_upload)
             content = extract_from_file(tmp_upload, uploaded_file.filename)

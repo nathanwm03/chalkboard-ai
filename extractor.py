@@ -1,7 +1,10 @@
 import os
+import base64
+import io
 
 MAX_PAGES = 10
 MAX_CHARS = 5000
+IMAGE_MAX_PX = 1000  # longest side limit before base64 encoding
 
 
 def extract_pdf(file_path: str) -> str:
@@ -53,6 +56,21 @@ def extract_pptx(file_path: str) -> str:
         return ""
 
 
+def extract_image(file_path: str) -> str:
+    from PIL import Image
+    img = Image.open(file_path)
+    img = img.convert("RGB")
+    w, h = img.size
+    longest = max(w, h)
+    if longest > IMAGE_MAX_PX:
+        scale = IMAGE_MAX_PX / longest
+        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    return f"IMAGE:{b64}"
+
+
 def extract_text(raw_text: str) -> str:
     raw_text = raw_text.strip()
     return raw_text[:MAX_CHARS] if len(raw_text) > MAX_CHARS else raw_text
@@ -66,6 +84,8 @@ def extract_from_file(file_path: str, filename: str) -> str:
         return extract_docx(file_path)
     elif ext == ".pptx":
         return extract_pptx(file_path)
+    elif ext in (".jpg", ".jpeg", ".png"):
+        return extract_image(file_path)
     elif ext == ".txt":
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
