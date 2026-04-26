@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChalkBoard AI</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <!-- ── LEFT SIDEBAR ─────────────────────────────────── -->
+    <aside class="sidebar">
+
+      <!-- Logo -->
+      <div class="logo">🖊 ChalkBoard AI</div>
+
+      <!-- File upload zone -->
+      <div class="section-label">Upload a document</div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept=".pdf,.docx,.pptx,.txt" hidden />
+        <div class="upload-inner" id="uploadInner">
+          <div class="upload-icon">📄</div>
+          <div class="upload-hint">Drag & drop or <span class="link">click to browse</span></div>
+          <div class="upload-formats">.pdf · .docx · .pptx · .txt</div>
+        </div>
+        <div class="file-info hidden" id="fileInfo">
+          <span class="file-name" id="fileName"></span>
+          <span class="word-count" id="wordCount"></span>
+          <button class="clear-btn" id="clearFile" title="Remove file">✕</button>
+        </div>
+      </div>
+
+      <!-- Paste text collapsible -->
+      <div class="paste-toggle" id="pasteToggle">
+        <span>OR paste your text</span>
+        <span class="chevron" id="pasteChevron">▸</span>
+      </div>
+      <div class="paste-section hidden" id="pasteSection">
+        <textarea id="pasteText" rows="6" placeholder="Paste document text here…"></textarea>
+      </div>
+
+      <!-- Topic -->
+      <div class="section-label">Topic focus</div>
+      <input type="text" id="topicInput" placeholder="e.g. health risks, photosynthesis…" />
+
+      <!-- Style picker -->
+      <div class="section-label">Video style</div>
+      <div class="style-picker">
+        <button class="style-btn active" data-style="Whiteboard" id="styleWhiteboard">
+          <span class="style-icon">📝</span>
+          <span class="style-name">Whiteboard</span>
+          <span class="style-desc">Animated chalkboard writing</span>
+        </button>
+        <button class="style-btn" data-style="Slides" id="styleSlides">
+          <span class="style-icon">🖥</span>
+          <span class="style-name">Slides</span>
+          <span class="style-desc">Clean modern presentation</span>
+        </button>
+      </div>
+
+      <!-- Theme picker -->
+      <div class="section-label">Color theme</div>
+      <div class="theme-picker">
+        <button class="theme-btn active" data-theme="Clean" title="Clean">
+          <span class="swatch swatch-clean"></span> Clean
+        </button>
+        <button class="theme-btn" data-theme="Colorful" title="Colorful">
+          <span class="swatch swatch-colorful"></span> Colorful
+        </button>
+        <button class="theme-btn" data-theme="Dark" title="Dark">
+          <span class="swatch swatch-dark"></span> Dark
+        </button>
+      </div>
+
+      <!-- Generate button -->
+      <button class="generate-btn" id="generateBtn" disabled>Generate Video</button>
+
+      <!-- Progress area -->
+      <div class="progress-area hidden" id="progressArea">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <ul class="progress-steps" id="progressSteps">
+          <li data-step="0">Extracting text…</li>
+          <li data-step="1">Generating script…</li>
+          <li data-step="2">Rendering frames…</li>
+          <li data-step="3">Adding narration…</li>
+          <li data-step="4">Composing video…</li>
+        </ul>
+      </div>
+
+      <!-- Card chips -->
+      <div class="cards-section hidden" id="cardsSection">
+        <div class="section-label">Cards</div>
+        <div class="card-chips" id="cardChips"></div>
+      </div>
+
+    </aside>
+
+    <!-- ── RIGHT CONTENT ─────────────────────────────────── -->
+    <main class="content">
+
+      <!-- Placeholder (before generation) -->
+      <div class="placeholder" id="placeholder">
+        <div class="placeholder-art">🎓</div>
+        <h2>Turn any document into a video</h2>
+        <p>Upload a PDF, DOCX, PPTX, or paste text on the left.<br>Pick a topic, style, and theme — then hit Generate.</p>
+        <ul class="placeholder-steps">
+          <li>📤 Upload or paste your document</li>
+          <li>🎯 Type a topic to focus on</li>
+          <li>🎬 Pick Whiteboard or Slides</li>
+          <li>✨ Click Generate — 30–90 seconds</li>
+        </ul>
+      </div>
+
+      <!-- Video section (after generation) -->
+      <div class="video-section hidden" id="videoSection">
+        <div class="video-wrap">
+          <video id="videoPlayer" controls playsinline>
+            <source id="videoSrc" src="" type="video/mp4" />
+          </video>
+        </div>
+
+        <div class="video-actions">
+          <button class="action-btn" id="playBtn">▶ Play</button>
+          <a class="action-btn" id="downloadBtn" href="/download" download="chalkboard_video.mp4">⏬ Download MP4</a>
+          <button class="action-btn" id="regenBtn">🔄 Regenerate</button>
+        </div>
+
+        <div class="card-detail" id="cardDetail">
+          <div class="card-detail-emoji" id="detailEmoji"></div>
+          <div class="card-detail-body">
+            <div class="card-detail-title" id="detailTitle"></div>
+            <ul class="card-detail-bullets" id="detailBullets"></ul>
+            <div class="card-detail-narration" id="detailNarration"></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+  (() => {
+    // ── State ──────────────────────────────────────────────
+    let selectedFile = null;
+    let selectedStyle = "Whiteboard";
+    let selectedTheme = "Clean";
+    let generatedCards = [];
+    let cardTimestamps = [];
+
+    const $ = id => document.getElementById(id);
+
+    // ── File upload ────────────────────────────────────────
+    const uploadZone = $("uploadZone");
+    const fileInput = $("fileInput");
+
+    uploadZone.addEventListener("click", e => {
+      if (e.target.id !== "clearFile") fileInput.click();
+    });
+
+    uploadZone.addEventListener("dragover", e => {
+      e.preventDefault();
+      uploadZone.classList.add("drag-over");
+    });
+    uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("drag-over"));
+    uploadZone.addEventListener("drop", e => {
+      e.preventDefault();
+      uploadZone.classList.remove("drag-over");
+      const f = e.dataTransfer.files[0];
+      if (f) setFile(f);
+    });
+
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files[0]) setFile(fileInput.files[0]);
+    });
+
+    function setFile(file) {
+      selectedFile = file;
+      $("uploadInner").classList.add("hidden");
+      $("fileInfo").classList.remove("hidden");
+      $("fileName").textContent = file.name;
+      // Estimate word count from file name (real count needs server)
+      $("wordCount").textContent = "ready to upload";
+      checkReady();
+    }
+
+    $("clearFile").addEventListener("click", e => {
+      e.stopPropagation();
+      selectedFile = null;
+      fileInput.value = "";
+      $("fileInfo").classList.add("hidden");
+      $("uploadInner").classList.remove("hidden");
+      checkReady();
+    });
+
+    // ── Paste toggle ───────────────────────────────────────
+    $("pasteToggle").addEventListener("click", () => {
+      const sec = $("pasteSection");
+      const ch = $("pasteChevron");
+      const open = !sec.classList.contains("hidden");
+      sec.classList.toggle("hidden", open);
+      ch.textContent = open ? "▸" : "▾";
+    });
+
+    $("pasteText").addEventListener("input", checkReady);
+
+    // ── Topic ──────────────────────────────────────────────
+    $("topicInput").addEventListener("input", checkReady);
+
+    // ── Style picker ───────────────────────────────────────
+    document.querySelectorAll(".style-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".style-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedStyle = btn.dataset.style;
+      });
+    });
+
+    // ── Theme picker ───────────────────────────────────────
+    document.querySelectorAll(".theme-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".theme-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedTheme = btn.dataset.theme;
+      });
+    });
+
+    // ── Ready check ────────────────────────────────────────
+    function checkReady() {
+      const hasContent = selectedFile || $("pasteText").value.trim().length > 0;
+      const hasTopic = $("topicInput").value.trim().length > 0;
+      $("generateBtn").disabled = !(hasContent && hasTopic);
+    }
+
+    // ── Progress animation ────────────────────────────────
+    let progressInterval = null;
+    const STEPS = 5;
+
+    function startProgress() {
+      $("progressArea").classList.remove("hidden");
+      $("cardsSection").classList.add("hidden");
+      const steps = document.querySelectorAll(".progress-steps li");
+      steps.forEach(s => s.classList.remove("active", "done"));
+
+      let currentStep = 0;
+      const stepDurations = [3000, 12000, 20000, 8000, 10000]; // rough ms per step
+
+      function activateStep(idx) {
+        if (idx > 0) steps[idx - 1].classList.add("done");
+        if (idx < steps.length) steps[idx].classList.add("active");
+        const pct = Math.round(((idx + 0.5) / STEPS) * 100);
+        $("progressFill").style.width = pct + "%";
+      }
+
+      activateStep(0);
+      let elapsed = 0;
+
+      progressInterval = setInterval(() => {
+        elapsed += 500;
+        let cumulative = 0;
+        for (let i = 0; i < stepDurations.length; i++) {
+          cumulative += stepDurations[i];
+          if (elapsed < cumulative) {
+            if (i !== currentStep) {
+              currentStep = i;
+              activateStep(i);
+            }
+            break;
+          }
+        }
+      }, 500);
+    }
+
+    function stopProgress(success) {
+      clearInterval(progressInterval);
+      const steps = document.querySelectorAll(".progress-steps li");
+      if (success) {
+        steps.forEach(s => s.classList.add("done"));
+        steps.forEach(s => s.classList.remove("active"));
+        $("progressFill").style.width = "100%";
+      }
+      setTimeout(() => $("progressArea").classList.add("hidden"), 1500);
+    }
+
+    // ── Generate ───────────────────────────────────────────
+    $("generateBtn").addEventListener("click", async () => {
+      const topic = $("topicInput").value.trim();
+      const pasteText = $("pasteText").value.trim();
+
+      if (!topic || (!selectedFile && !pasteText)) return;
+
+      $("generateBtn").disabled = true;
+      $("videoSection").classList.add("hidden");
+      $("placeholder").classList.add("hidden");
+      startProgress();
+
+      const fd = new FormData();
+      fd.append("topic", topic);
+      fd.append("style", selectedStyle);
+      fd.append("theme", selectedTheme);
+      if (selectedFile) fd.append("file", selectedFile);
+      if (pasteText) fd.append("text", pasteText);
+
+      try {
+        const res = await fetch("/generate", { method: "POST", body: fd });
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          stopProgress(false);
+          alert("Error: " + (data.error || "Unknown error"));
+          $("generateBtn").disabled = false;
+          $("placeholder").classList.remove("hidden");
+          return;
+        }
+
+        stopProgress(true);
+        generatedCards = data.cards;
+        buildCardTimestamps();
+        renderCardChips();
+        showVideo();
+
+      } catch (err) {
+        stopProgress(false);
+        alert("Network error: " + err.message);
+        $("generateBtn").disabled = false;
+        $("placeholder").classList.remove("hidden");
+      }
+    });
+
+    function buildCardTimestamps() {
+      cardTimestamps = [];
+      const HOLD = 0.4;
+      const FPS = 24;
+      let t = 0;
+      generatedCards.forEach(card => {
+        cardTimestamps.push(t);
+        t += card.duration + HOLD;
+      });
+    }
+
+    function renderCardChips() {
+      const container = $("cardChips");
+      container.innerHTML = "";
+      generatedCards.forEach((card, i) => {
+        const chip = document.createElement("button");
+        chip.className = "card-chip";
+        chip.innerHTML = `<span class="chip-emoji">${card.emoji}</span><span class="chip-title">${card.title}</span>`;
+        chip.addEventListener("click", () => {
+          const video = $("videoPlayer");
+          video.currentTime = cardTimestamps[i];
+          video.play();
+        });
+        container.appendChild(chip);
+      });
+      $("cardsSection").classList.remove("hidden");
+    }
+
+    function showVideo() {
+      const video = $("videoPlayer");
+      const src = $("videoSrc");
+      // Cache-bust to force reload
+      src.src = "/video?t=" + Date.now();
+      video.load();
+      video.play();
+      $("videoSection").classList.remove("hidden");
+      $("generateBtn").disabled = false;
+      updateCardDetail(0);
+    }
+
+    // ── Video time tracking ────────────────────────────────
+    $("videoPlayer").addEventListener("timeupdate", () => {
+      const t = $("videoPlayer").currentTime;
+      let activeIdx = 0;
+      for (let i = cardTimestamps.length - 1; i >= 0; i--) {
+        if (t >= cardTimestamps[i]) { activeIdx = i; break; }
+      }
+      updateCardDetail(activeIdx);
+      highlightChip(activeIdx);
+    });
+
+    function updateCardDetail(idx) {
+      if (!generatedCards.length) return;
+      const card = generatedCards[idx];
+      if (!card) return;
+      $("detailEmoji").textContent = card.emoji;
+      $("detailTitle").textContent = card.title;
+      const ul = $("detailBullets");
+      ul.innerHTML = "";
+      (card.bullets || []).forEach(b => {
+        const li = document.createElement("li");
+        li.textContent = b;
+        ul.appendChild(li);
+      });
+      $("detailNarration").textContent = card.narration;
+    }
+
+    function highlightChip(idx) {
+      document.querySelectorAll(".card-chip").forEach((c, i) => {
+        c.classList.toggle("active", i === idx);
+      });
+    }
+
+    // ── Play button ────────────────────────────────────────
+    $("playBtn").addEventListener("click", () => {
+      const video = $("videoPlayer");
+      video.paused ? video.play() : video.pause();
+    });
+
+    // ── Regenerate ─────────────────────────────────────────
+    $("regenBtn").addEventListener("click", () => {
+      $("videoSection").classList.add("hidden");
+      $("placeholder").classList.remove("hidden");
+      generatedCards = [];
+      cardTimestamps = [];
+      $("generateBtn").disabled = false;
+      checkReady();
+    });
+
+  })();
+  </script>
+</body>
+</html>

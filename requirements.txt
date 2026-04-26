@@ -1,0 +1,9 @@
+flask
+anthropic
+pdfplumber
+python-docx
+python-pptx
+pyttsx3
+moviepy
+Pillow
+numpy
