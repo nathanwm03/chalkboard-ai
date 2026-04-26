@@ -7,7 +7,6 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 app = Flask(__name__)
 
-# Global state for the latest generated video
 _state = {"video_path": None, "cards": []}
 
 TEMP_DIR = os.path.join(tempfile.gettempdir(), "chalkboard_ai")
@@ -21,6 +20,11 @@ def _cleanup_tmp():
     if os.path.exists(TEMP_DIR):
         shutil.rmtree(TEMP_DIR, ignore_errors=True)
     os.makedirs(TEMP_DIR, exist_ok=True)
+
+
+def _json_error(step: str, exc: Exception, status: int = 500):
+    traceback.print_exc()
+    return jsonify({"error": f"{step} failed: {exc}"}), status
 
 
 @app.route("/")
@@ -38,16 +42,16 @@ def generate():
 
     _cleanup_tmp()
 
+    topic = request.form.get("topic", "").strip()
+    style = request.form.get("style", "Whiteboard")
+    theme = request.form.get("theme", "Clean")
+    pasted_text = request.form.get("text", "").strip()
+
+    if not topic:
+        return jsonify({"error": "Topic is required"}), 400
+
+    # Extract
     try:
-        topic = request.form.get("topic", "").strip()
-        style = request.form.get("style", "Whiteboard")
-        theme = request.form.get("theme", "Clean")
-        pasted_text = request.form.get("text", "").strip()
-
-        if not topic:
-            return jsonify({"error": "Topic is required"}), 400
-
-        # Extract text
         content = ""
         uploaded_file = request.files.get("file")
         if uploaded_file and uploaded_file.filename:
@@ -56,31 +60,40 @@ def generate():
             content = extract_from_file(tmp_upload, uploaded_file.filename)
         elif pasted_text:
             content = extract_text(pasted_text)
-
         if not content:
-            return jsonify({"error": "No content provided — upload a file or paste text"}), 400
-
-        # Generate cards via Claude
-        cards = generate_cards(content, topic)
-
-        # Render frames — writes JPEGs to TEMP_DIR, returns file paths
-        frames = render_frames(cards, style, theme, TEMP_DIR)
-
-        # Narrate
-        wav_paths = narrate_cards(cards, TEMP_DIR)
-
-        # Compose video
-        video_path = os.path.join(TEMP_DIR, "output.mp4")
-        compose_video(frames, cards, wav_paths, video_path)
-
-        _state["video_path"] = video_path
-        _state["cards"] = cards
-
-        return jsonify({"success": True, "cards": cards})
-
+            return jsonify({"error": "No content found — file may be empty or unreadable"}), 400
     except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return _json_error("extracting text", e)
+
+    # Generate cards
+    try:
+        cards = generate_cards(content, topic)
+    except Exception as e:
+        return _json_error("generating script", e)
+
+    # Render frames
+    try:
+        frames = render_frames(cards, style, theme, TEMP_DIR)
+    except Exception as e:
+        return _json_error("rendering frames", e)
+
+    # Narrate
+    try:
+        audio_paths = narrate_cards(cards, TEMP_DIR)
+    except Exception as e:
+        audio_paths = None  # non-fatal — continue without audio
+
+    # Compose video
+    try:
+        video_path = os.path.join(TEMP_DIR, "output.mp4")
+        compose_video(frames, cards, audio_paths, video_path)
+    except Exception as e:
+        return _json_error("composing video", e)
+
+    _state["video_path"] = video_path
+    _state["cards"] = cards
+
+    return jsonify({"success": True, "cards": cards})
 
 
 @app.route("/video")
