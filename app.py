@@ -63,8 +63,8 @@ def generate():
         # Generate cards via Claude
         cards = generate_cards(content, topic)
 
-        # Render frames
-        frames = render_frames(cards, style, theme)
+        # Render frames — writes JPEGs to TEMP_DIR, returns file paths
+        frames = render_frames(cards, style, theme, TEMP_DIR)
 
         # Narrate
         wav_paths = narrate_cards(cards, TEMP_DIR)
