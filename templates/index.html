@@ -4,23 +4,408 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ChalkBoard AI</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Patrick+Hand&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Custom properties ─────────────────────────────────────── */
+    :root {
+      --bg: #f5f0e8;
+      --sidebar-bg: #ede8df;
+      --ink: #2c2c2c;
+      --accent: #e8593c;
+      --accent2: #3b82f6;
+      --border: #c8bfb0;
+      --shadow: 3px 3px 0 #2c2c2c;
+      --shadow-sm: 2px 2px 0 #2c2c2c;
+      --radius: 8px;
+      --sidebar-width: 320px;
+      --font-hand: 'Caveat', cursive;
+      --font-body: 'Patrick Hand', sans-serif;
+    }
+
+    /* ── Reset / Base ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      font-size: 16px;
+    }
+
+    /* ── Layout ────────────────────────────────────────────────── */
+    .app-layout { display: flex; min-height: 100vh; }
+
+    /* ── Sidebar ───────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-width);
+      min-width: var(--sidebar-width);
+      background: var(--sidebar-bg);
+      border-right: 3px solid #2c2c2c;
+      padding: 20px 18px 32px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .logo {
+      font-family: var(--font-hand);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ink);
+      padding-bottom: 12px;
+      border-bottom: 2px dashed var(--border);
+      margin-bottom: 4px;
+    }
+
+    .section-label {
+      font-family: var(--font-hand);
+      font-size: 15px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: -6px;
+    }
+
+    /* ── Upload zone ───────────────────────────────────────────── */
+    .upload-zone {
+      border: 2.5px dashed var(--border);
+      border-radius: var(--radius);
+      background: #faf7f2;
+      min-height: 90px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: #fff5f2;
+    }
+    .upload-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 10px;
+      gap: 4px;
+    }
+    .upload-icon { font-size: 28px; }
+    .upload-hint { font-size: 14px; text-align: center; }
+    .upload-hint .link { color: var(--accent); text-decoration: underline; cursor: pointer; }
+    .upload-formats { font-size: 12px; color: #999; }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      flex-wrap: wrap;
+    }
+    .file-name { font-size: 14px; font-weight: 600; flex: 1; word-break: break-all; }
+    .word-count { font-size: 12px; color: #888; white-space: nowrap; }
+    .clear-btn {
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px;
+      transition: color 0.2s;
+    }
+    .clear-btn:hover { color: var(--accent); }
+
+    /* ── Paste section ─────────────────────────────────────────── */
+    .paste-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-family: var(--font-hand);
+      font-size: 16px;
+      padding: 6px 2px;
+      color: #666;
+      border-bottom: 1px dashed var(--border);
+      user-select: none;
+      transition: color 0.2s;
+    }
+    .paste-toggle:hover { color: var(--accent); }
+    .chevron { font-size: 14px; }
+
+    .paste-section textarea {
+      width: 100%;
+      resize: vertical;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      background: #faf7f2;
+      color: var(--ink);
+      transition: border-color 0.2s;
+      margin-top: 6px;
+    }
+    .paste-section textarea:focus { outline: none; border-color: var(--accent2); }
+
+    /* ── Topic input ───────────────────────────────────────────── */
+    #topicInput {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      font-family: var(--font-body);
+      font-size: 15px;
+      background: #faf7f2;
+      color: var(--ink);
+      box-shadow: var(--shadow-sm);
+      transition: border-color 0.2s;
+    }
+    #topicInput:focus { outline: none; border-color: var(--accent); }
+
+    /* ── Style picker ──────────────────────────────────────────── */
+    .style-picker { display: flex; gap: 8px; }
+
+    .style-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 8px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      background: #faf7f2;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.15s;
+      gap: 2px;
+    }
+    .style-btn:hover { border-color: var(--accent); transform: translate(-1px,-1px); box-shadow: 3px 3px 0 #2c2c2c; }
+    .style-btn.active { border-color: var(--accent); background: #fff5f2; box-shadow: 3px 3px 0 var(--accent); }
+    .style-icon { font-size: 22px; }
+    .style-name { font-family: var(--font-hand); font-size: 16px; font-weight: 700; }
+    .style-desc { font-size: 11px; color: #888; text-align: center; }
+
+    /* ── Theme picker ──────────────────────────────────────────── */
+    .theme-picker { display: flex; gap: 8px; }
+
+    .theme-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 4px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      background: #faf7f2;
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-size: 13px;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.15s;
+    }
+    .theme-btn:hover { border-color: var(--accent2); transform: translate(-1px,-1px); }
+    .theme-btn.active { border-color: var(--accent2); background: #f0f4ff; box-shadow: 3px 3px 0 var(--accent2); }
+    .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.2); }
+    .swatch-clean    { background: #f5f0e8; }
+    .swatch-colorful { background: #f97316; }
+    .swatch-dark     { background: #1a1a2e; }
+
+    /* ── Generate button ───────────────────────────────────────── */
+    .generate-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: #fff;
+      border: 2px solid var(--ink);
+      border-radius: var(--radius);
+      font-family: var(--font-hand);
+      font-size: 22px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 #2c2c2c;
+      transition: all 0.15s;
+      margin-top: 4px;
+    }
+    .generate-btn:hover:not(:disabled) { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 var(--ink); }
+    .generate-btn:active:not(:disabled) { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+    .generate-btn:disabled { background: #ccc; color: #888; cursor: not-allowed; box-shadow: 2px 2px 0 #aaa; }
+
+    /* ── Progress area ─────────────────────────────────────────── */
+    .progress-area { display: flex; flex-direction: column; gap: 8px; }
+
+    .progress-bar-wrap {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.6s ease;
+      border-radius: 4px;
+    }
+
+    .progress-steps { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .progress-steps li { font-size: 13px; color: #aaa; padding: 3px 6px; border-radius: 4px; transition: all 0.3s; }
+    .progress-steps li.active { color: var(--ink); font-weight: 600; background: #fff; border-left: 3px solid var(--accent); }
+    .progress-steps li.done { color: #16a34a; }
+    .progress-steps li.done::before { content: "✓ "; }
+
+    /* ── Card chips ────────────────────────────────────────────── */
+    .cards-section { display: flex; flex-direction: column; gap: 6px; }
+    .card-chips { display: flex; flex-direction: column; gap: 6px; }
+
+    .card-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      background: #faf7f2;
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-size: 14px;
+      text-align: left;
+      transition: all 0.15s;
+      box-shadow: var(--shadow-sm);
+    }
+    .card-chip:hover { border-color: var(--accent); transform: translate(-1px,-1px); }
+    .card-chip.active { border-color: var(--accent); background: #fff5f2; font-weight: 700; }
+    .chip-emoji { font-size: 18px; flex-shrink: 0; }
+    .chip-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Content area ──────────────────────────────────────────── */
+    .content {
+      flex: 1;
+      padding: 40px 48px;
+      background: #f5f0e8;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Placeholder ───────────────────────────────────────────── */
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      max-width: 520px;
+      margin: auto;
+      gap: 16px;
+    }
+    .placeholder-art { font-size: 80px; filter: grayscale(0.2); }
+    .placeholder h2 { font-family: var(--font-hand); font-size: 32px; color: var(--ink); }
+    .placeholder p { font-size: 16px; color: #666; line-height: 1.6; }
+    .placeholder-steps {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #fff;
+      padding: 16px 24px;
+      border-radius: var(--radius);
+      border: 1.5px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      text-align: left;
+      font-size: 15px;
+    }
+
+    /* ── Video section ─────────────────────────────────────────── */
+    .video-section { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 900px; }
+
+    .video-wrap {
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      background: #000;
+    }
+    .video-wrap video { width: 100%; display: block; }
+
+    .video-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    .action-btn {
+      padding: 10px 20px;
+      border: 2px solid var(--ink);
+      border-radius: var(--radius);
+      background: #faf7f2;
+      cursor: pointer;
+      font-family: var(--font-hand);
+      font-size: 18px;
+      box-shadow: var(--shadow-sm);
+      text-decoration: none;
+      color: var(--ink);
+      transition: all 0.15s;
+    }
+    .action-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink); }
+    .action-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+
+    /* ── Card detail panel ─────────────────────────────────────── */
+    .card-detail {
+      display: flex;
+      gap: 16px;
+      padding: 20px;
+      background: #fff;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.3s;
+      min-height: 100px;
+    }
+    .card-detail-emoji { font-size: 48px; flex-shrink: 0; line-height: 1; }
+    .card-detail-body { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .card-detail-title { font-family: var(--font-hand); font-size: 24px; font-weight: 700; color: var(--ink); }
+    .card-detail-bullets { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .card-detail-bullets li { font-size: 15px; color: #444; padding-left: 16px; position: relative; }
+    .card-detail-bullets li::before { content: "•"; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+    .card-detail-narration {
+      font-size: 14px;
+      color: #777;
+      line-height: 1.6;
+      font-style: italic;
+      border-top: 1px dashed var(--border);
+      padding-top: 8px;
+      margin-top: 4px;
+    }
+
+    /* ── Utility ───────────────────────────────────────────────── */
+    .hidden { display: none !important; }
+
+    /* ── Responsive ────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .app-layout { flex-direction: column; }
+      .sidebar { width: 100%; min-width: unset; border-right: none; border-bottom: 2px solid var(--border); }
+      .content { padding: 24px 16px; }
+      .video-section { max-width: 100%; }
+      .style-picker { flex-direction: column; }
+    }
+  </style>
 </head>
 <body>
   <div class="app-layout">
-    <!-- ── LEFT SIDEBAR ─────────────────────────────────── -->
+
+    <!-- ── LEFT SIDEBAR ─────────────────────────────────────── -->
     <aside class="sidebar">
 
-      <!-- Logo -->
       <div class="logo">🖊 ChalkBoard AI</div>
 
-      <!-- File upload zone -->
+      <!-- File upload -->
       <div class="section-label">Upload a document</div>
       <div class="upload-zone" id="uploadZone">
         <input type="file" id="fileInput" accept=".pdf,.docx,.pptx,.txt" hidden />
         <div class="upload-inner" id="uploadInner">
           <div class="upload-icon">📄</div>
-          <div class="upload-hint">Drag & drop or <span class="link">click to browse</span></div>
+          <div class="upload-hint">Drag &amp; drop or <span class="link">click to browse</span></div>
           <div class="upload-formats">.pdf · .docx · .pptx · .txt</div>
         </div>
         <div class="file-info hidden" id="fileInfo">
@@ -30,9 +415,9 @@
         </div>
       </div>
 
-      <!-- Paste text collapsible -->
+      <!-- Paste text -->
       <div class="paste-toggle" id="pasteToggle">
-        <span>OR paste your text</span>
+        <span>or paste text</span>
         <span class="chevron" id="pasteChevron">▸</span>
       </div>
       <div class="paste-section hidden" id="pasteSection">
@@ -46,36 +431,36 @@
       <!-- Style picker -->
       <div class="section-label">Video style</div>
       <div class="style-picker">
-        <button class="style-btn active" data-style="Whiteboard" id="styleWhiteboard">
-          <span class="style-icon">📝</span>
+        <button class="style-btn active" data-style="Whiteboard">
+          <span class="style-icon">📋</span>
           <span class="style-name">Whiteboard</span>
-          <span class="style-desc">Animated chalkboard writing</span>
+          <span class="style-desc">Animated writing</span>
         </button>
-        <button class="style-btn" data-style="Slides" id="styleSlides">
-          <span class="style-icon">🖥</span>
+        <button class="style-btn" data-style="Slides">
+          <span class="style-icon">🎬</span>
           <span class="style-name">Slides</span>
-          <span class="style-desc">Clean modern presentation</span>
+          <span class="style-desc">Modern presentation</span>
         </button>
       </div>
 
       <!-- Theme picker -->
       <div class="section-label">Color theme</div>
       <div class="theme-picker">
-        <button class="theme-btn active" data-theme="Clean" title="Clean">
+        <button class="theme-btn active" data-theme="Clean">
           <span class="swatch swatch-clean"></span> Clean
         </button>
-        <button class="theme-btn" data-theme="Colorful" title="Colorful">
+        <button class="theme-btn" data-theme="Colorful">
           <span class="swatch swatch-colorful"></span> Colorful
         </button>
-        <button class="theme-btn" data-theme="Dark" title="Dark">
+        <button class="theme-btn" data-theme="Dark">
           <span class="swatch swatch-dark"></span> Dark
         </button>
       </div>
 
-      <!-- Generate button -->
-      <button class="generate-btn" id="generateBtn" disabled>Generate Video</button>
+      <!-- Generate -->
+      <button class="generate-btn" id="generateBtn" disabled>✨ Generate Video</button>
 
-      <!-- Progress area -->
+      <!-- Progress -->
       <div class="progress-area hidden" id="progressArea">
         <div class="progress-bar-wrap">
           <div class="progress-bar-fill" id="progressFill"></div>
@@ -97,10 +482,10 @@
 
     </aside>
 
-    <!-- ── RIGHT CONTENT ─────────────────────────────────── -->
+    <!-- ── RIGHT CONTENT ─────────────────────────────────────── -->
     <main class="content">
 
-      <!-- Placeholder (before generation) -->
+      <!-- Placeholder -->
       <div class="placeholder" id="placeholder">
         <div class="placeholder-art">🎓</div>
         <h2>Turn any document into a video</h2>
@@ -113,20 +498,18 @@
         </ul>
       </div>
 
-      <!-- Video section (after generation) -->
+      <!-- Video section -->
       <div class="video-section hidden" id="videoSection">
         <div class="video-wrap">
           <video id="videoPlayer" controls playsinline>
             <source id="videoSrc" src="" type="video/mp4" />
           </video>
         </div>
-
         <div class="video-actions">
-          <button class="action-btn" id="playBtn">▶ Play</button>
-          <a class="action-btn" id="downloadBtn" href="/download" download="chalkboard_video.mp4">⏬ Download MP4</a>
+          <button class="action-btn" id="playBtn">▶ Play / Pause</button>
+          <a class="action-btn" id="downloadBtn" href="/download" download="chalkboard_video.mp4">⬇ Download MP4</a>
           <button class="action-btn" id="regenBtn">🔄 Regenerate</button>
         </div>
-
         <div class="card-detail" id="cardDetail">
           <div class="card-detail-emoji" id="detailEmoji"></div>
           <div class="card-detail-body">
@@ -142,7 +525,6 @@
 
   <script>
   (() => {
-    // ── State ──────────────────────────────────────────────
     let selectedFile = null;
     let selectedStyle = "Whiteboard";
     let selectedTheme = "Clean";
@@ -151,14 +533,13 @@
 
     const $ = id => document.getElementById(id);
 
-    // ── File upload ────────────────────────────────────────
+    // ── File upload ──────────────────────────────────────────────
     const uploadZone = $("uploadZone");
-    const fileInput = $("fileInput");
+    const fileInput  = $("fileInput");
 
     uploadZone.addEventListener("click", e => {
       if (e.target.id !== "clearFile") fileInput.click();
     });
-
     uploadZone.addEventListener("dragover", e => {
       e.preventDefault();
       uploadZone.classList.add("drag-over");
@@ -170,7 +551,6 @@
       const f = e.dataTransfer.files[0];
       if (f) setFile(f);
     });
-
     fileInput.addEventListener("change", () => {
       if (fileInput.files[0]) setFile(fileInput.files[0]);
     });
@@ -180,7 +560,6 @@
       $("uploadInner").classList.add("hidden");
       $("fileInfo").classList.remove("hidden");
       $("fileName").textContent = file.name;
-      // Estimate word count from file name (real count needs server)
       $("wordCount").textContent = "ready to upload";
       checkReady();
     }
@@ -194,21 +573,19 @@
       checkReady();
     });
 
-    // ── Paste toggle ───────────────────────────────────────
+    // ── Paste toggle ─────────────────────────────────────────────
     $("pasteToggle").addEventListener("click", () => {
-      const sec = $("pasteSection");
-      const ch = $("pasteChevron");
+      const sec  = $("pasteSection");
       const open = !sec.classList.contains("hidden");
       sec.classList.toggle("hidden", open);
-      ch.textContent = open ? "▸" : "▾";
+      $("pasteChevron").textContent = open ? "▸" : "▾";
     });
-
     $("pasteText").addEventListener("input", checkReady);
 
-    // ── Topic ──────────────────────────────────────────────
+    // ── Topic ────────────────────────────────────────────────────
     $("topicInput").addEventListener("input", checkReady);
 
-    // ── Style picker ───────────────────────────────────────
+    // ── Style picker ─────────────────────────────────────────────
     document.querySelectorAll(".style-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".style-btn").forEach(b => b.classList.remove("active"));
@@ -217,7 +594,7 @@
       });
     });
 
-    // ── Theme picker ───────────────────────────────────────
+    // ── Theme picker ─────────────────────────────────────────────
     document.querySelectorAll(".theme-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".theme-btn").forEach(b => b.classList.remove("active"));
@@ -226,16 +603,15 @@
       });
     });
 
-    // ── Ready check ────────────────────────────────────────
+    // ── Ready check ──────────────────────────────────────────────
     function checkReady() {
       const hasContent = selectedFile || $("pasteText").value.trim().length > 0;
-      const hasTopic = $("topicInput").value.trim().length > 0;
+      const hasTopic   = $("topicInput").value.trim().length > 0;
       $("generateBtn").disabled = !(hasContent && hasTopic);
     }
 
-    // ── Progress animation ────────────────────────────────
+    // ── Progress ─────────────────────────────────────────────────
     let progressInterval = null;
-    const STEPS = 5;
 
     function startProgress() {
       $("progressArea").classList.remove("hidden");
@@ -243,18 +619,19 @@
       const steps = document.querySelectorAll(".progress-steps li");
       steps.forEach(s => s.classList.remove("active", "done"));
 
+      const stepDurations = [3000, 12000, 20000, 8000, 10000];
       let currentStep = 0;
-      const stepDurations = [3000, 12000, 20000, 8000, 10000]; // rough ms per step
+      let elapsed = 0;
 
       function activateStep(idx) {
         if (idx > 0) steps[idx - 1].classList.add("done");
-        if (idx < steps.length) steps[idx].classList.add("active");
-        const pct = Math.round(((idx + 0.5) / STEPS) * 100);
-        $("progressFill").style.width = pct + "%";
+        if (idx < steps.length) {
+          steps[idx].classList.add("active");
+          $("progressFill").style.width = Math.round(((idx + 0.5) / 5) * 100) + "%";
+        }
       }
 
       activateStep(0);
-      let elapsed = 0;
 
       progressInterval = setInterval(() => {
         elapsed += 500;
@@ -262,10 +639,7 @@
         for (let i = 0; i < stepDurations.length; i++) {
           cumulative += stepDurations[i];
           if (elapsed < cumulative) {
-            if (i !== currentStep) {
-              currentStep = i;
-              activateStep(i);
-            }
+            if (i !== currentStep) { currentStep = i; activateStep(i); }
             break;
           }
         }
@@ -276,18 +650,16 @@
       clearInterval(progressInterval);
       const steps = document.querySelectorAll(".progress-steps li");
       if (success) {
-        steps.forEach(s => s.classList.add("done"));
-        steps.forEach(s => s.classList.remove("active"));
+        steps.forEach(s => { s.classList.add("done"); s.classList.remove("active"); });
         $("progressFill").style.width = "100%";
       }
       setTimeout(() => $("progressArea").classList.add("hidden"), 1500);
     }
 
-    // ── Generate ───────────────────────────────────────────
+    // ── Generate ─────────────────────────────────────────────────
     $("generateBtn").addEventListener("click", async () => {
-      const topic = $("topicInput").value.trim();
+      const topic     = $("topicInput").value.trim();
       const pasteText = $("pasteText").value.trim();
-
       if (!topic || (!selectedFile && !pasteText)) return;
 
       $("generateBtn").disabled = true;
@@ -300,10 +672,10 @@
       fd.append("style", selectedStyle);
       fd.append("theme", selectedTheme);
       if (selectedFile) fd.append("file", selectedFile);
-      if (pasteText) fd.append("text", pasteText);
+      if (pasteText)    fd.append("text", pasteText);
 
       try {
-        const res = await fetch("/generate", { method: "POST", body: fd });
+        const res  = await fetch("/generate", { method: "POST", body: fd });
         const data = await res.json();
 
         if (!res.ok || data.error) {
@@ -330,12 +702,10 @@
 
     function buildCardTimestamps() {
       cardTimestamps = [];
-      const HOLD = 0.4;
-      const FPS = 24;
       let t = 0;
       generatedCards.forEach(card => {
         cardTimestamps.push(t);
-        t += card.duration + HOLD;
+        t += card.duration + 0.4;
       });
     }
 
@@ -347,9 +717,9 @@
         chip.className = "card-chip";
         chip.innerHTML = `<span class="chip-emoji">${card.emoji}</span><span class="chip-title">${card.title}</span>`;
         chip.addEventListener("click", () => {
-          const video = $("videoPlayer");
-          video.currentTime = cardTimestamps[i];
-          video.play();
+          const v = $("videoPlayer");
+          v.currentTime = cardTimestamps[i];
+          v.play();
         });
         container.appendChild(chip);
       });
@@ -358,9 +728,7 @@
 
     function showVideo() {
       const video = $("videoPlayer");
-      const src = $("videoSrc");
-      // Cache-bust to force reload
-      src.src = "/video?t=" + Date.now();
+      $("videoSrc").src = "/video?t=" + Date.now();
       video.load();
       video.play();
       $("videoSection").classList.remove("hidden");
@@ -368,7 +736,7 @@
       updateCardDetail(0);
     }
 
-    // ── Video time tracking ────────────────────────────────
+    // ── Time tracking ────────────────────────────────────────────
     $("videoPlayer").addEventListener("timeupdate", () => {
       const t = $("videoPlayer").currentTime;
       let activeIdx = 0;
@@ -401,13 +769,11 @@
       });
     }
 
-    // ── Play button ────────────────────────────────────────
     $("playBtn").addEventListener("click", () => {
-      const video = $("videoPlayer");
-      video.paused ? video.play() : video.pause();
+      const v = $("videoPlayer");
+      v.paused ? v.play() : v.pause();
     });
 
-    // ── Regenerate ─────────────────────────────────────────
     $("regenBtn").addEventListener("click", () => {
       $("videoSection").classList.add("hidden");
       $("placeholder").classList.remove("hidden");

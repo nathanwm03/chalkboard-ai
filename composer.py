@@ -3,15 +3,18 @@ import numpy as np
 from PIL import Image
 
 FPS = 24
-HOLD_FRAMES = int(0.4 * FPS)
 
 
-def compose_video(frames: list[Image.Image], cards: list[dict], wav_paths: list[str] | None, output_path: str) -> str:
-    import moviepy.editor as mpy
+def compose_video(frames: list, cards: list, wav_paths, output_path: str) -> str:
+    # moviepy v2 removed moviepy.editor; fall back gracefully
+    try:
+        import moviepy.editor as mpy
+        _v2 = False
+    except ImportError:
+        import moviepy as mpy
+        _v2 = True
 
-    # Convert PIL frames to numpy arrays
     np_frames = [np.array(f.convert("RGB")) for f in frames]
-
     video_clip = mpy.ImageSequenceClip(np_frames, fps=FPS)
 
     audio_clip = None
@@ -20,32 +23,41 @@ def compose_video(frames: list[Image.Image], cards: list[dict], wav_paths: list[
         for i, (card, wav_path) in enumerate(zip(cards, wav_paths)):
             if wav_path and os.path.exists(wav_path) and os.path.getsize(wav_path) > 0:
                 try:
-                    card_audio = mpy.AudioFileClip(wav_path)
-                    audio_segments.append(card_audio)
+                    audio_segments.append(mpy.AudioFileClip(wav_path))
                 except Exception:
                     audio_segments.append(None)
             else:
                 audio_segments.append(None)
 
-            # Add 0.4s silence between cards
+            # 0.4s silence between cards to match hold frames
             if i < len(cards) - 1:
-                silence = mpy.AudioClip(lambda t: 0, duration=0.4, fps=44100)
-                audio_segments.append(silence)
+                try:
+                    if _v2:
+                        silence_arr = np.zeros((int(44100 * 0.4), 2))
+                        silence = mpy.AudioArrayClip(silence_arr, fps=44100)
+                    else:
+                        silence = mpy.AudioClip(lambda t: 0, duration=0.4, fps=44100)
+                    audio_segments.append(silence)
+                except Exception:
+                    pass
 
-        valid_segments = [s for s in audio_segments if s is not None]
-        if valid_segments:
+        valid = [s for s in audio_segments if s is not None]
+        if valid:
             try:
-                audio_clip = mpy.concatenate_audioclips(valid_segments)
+                audio_clip = mpy.concatenate_audioclips(valid)
             except Exception:
                 audio_clip = None
 
     if audio_clip is not None:
-        # Trim or pad audio to match video duration
-        video_duration = video_clip.duration
-        if audio_clip.duration > video_duration:
-            audio_clip = audio_clip.subclip(0, video_duration)
+        vid_dur = video_clip.duration
+        if audio_clip.duration > vid_dur:
+            audio_clip = audio_clip.subclip(0, vid_dur)
 
-        video_clip = video_clip.set_audio(audio_clip)
+        if _v2:
+            video_clip = video_clip.with_audio(audio_clip)
+        else:
+            video_clip = video_clip.set_audio(audio_clip)
+
         video_clip.write_videofile(
             output_path,
             codec="libx264",
